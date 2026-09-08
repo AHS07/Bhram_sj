@@ -118,7 +118,7 @@ Open `.env` and fill in your key:
 DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_TEXT_MODEL=deepseek-v4-flash
-DEEPSEEK_VISION_MODEL=deepseek-v4-flash
+DEEPSEEK_VISION_MODEL=deepseek-v4-flash-vision-exp
 ```
 
 The vision model and text model point to the same model by default. If your provider exposes a separate vision endpoint, set `DEEPSEEK_VISION_MODEL` accordingly.
@@ -129,13 +129,13 @@ The vision model and text model point to the same model by default. If your prov
 uvicorn main:app --reload
 ```
 
-- Review UI: http://localhost:8000/ui
+- Review UI: http://localhost:8000 (redirects to `/ui` automatically)
 - Swagger / raw API: http://localhost:8000/docs
 
 ### Workflow
 
-1. Open `/ui`, upload one PDF at a time using the upload panel.
-2. After all PDFs are uploaded, click **Run reconciliation**.
+1. Open the UI at http://localhost:8000, upload one PDF at a time.
+2. After all PDFs are uploaded, click **Run Reconciliation**. The button polls for completion — reconciliation runs in the background so the page stays responsive.
 3. Switch to the **Relations** tab to browse corroborated / contradicted / reconciled fact pairs with source evidence shown side by side.
 4. The **Facts** tab shows every extracted fact with its source quote, page number, confidence score, and grounding status.
 
@@ -145,7 +145,7 @@ uvicorn main:app --reload
 pytest tests/ -v
 ```
 
-The test suite does not require a live LLM — all LLM calls are mocked. Only `test_ingestion.py` and `test_pipeline_e2e.py` create synthetic PDFs on disk via PyMuPDF; no starter PDFs are required.
+The test suite does not require a live LLM — all LLM calls are mocked. Runs in under 5 seconds.
 
 ---
 
@@ -314,7 +314,9 @@ Every extracted fact undergoes a deterministic check: does `source_quote` actual
 
 ### The fact schema is generic by construction
 
-`entity / attribute / value / context` are free-text fields. No prompt, schema field, or classification logic references a specific company name, PDF filename, or attribute that only appears in the three starter PDFs. The system infers what counts as a fact from each document's own content. This means uploading an unrelated PDF (a legal contract, a scientific report, a shipping manifest) will produce correct fact extraction without any code change.
+`entity / attribute / value / context` are free-text fields. No prompt, schema field, or classification logic references a specific company name, PDF filename, or attribute that only appears in the three starter PDFs. The system infers what counts as a fact from each document's own content. This means uploading an unrelated PDF — a legal contract, a scientific report, a shipping manifest — produces correct fact extraction without any code change.
+
+This genericity is by design, not an accident. The extraction prompt deliberately asks the LLM to decide what counts as a fact based on what it sees on the page, not from a fixed field list. New document types are automatically handled.
 
 ### Incremental ingestion works out of the box
 
