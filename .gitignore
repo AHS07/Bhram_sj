@@ -3,6 +3,8 @@
 
 # Runtime data — generated locally, never committed
 bhram.db
+bhram.db-wal
+bhram.db-shm
 chroma_store/
 
 # Python
