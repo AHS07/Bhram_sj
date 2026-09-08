@@ -161,7 +161,9 @@ def list_facts(
 
 def _run_reconcile(job_id: str) -> None:
     """Executed in a BackgroundTask so POST /reconcile returns immediately."""
+    import logging, traceback
     from reconcile import reconcile_all
+    logger = logging.getLogger("bhram.reconcile_job")
     _reconcile_jobs[job_id]["status"] = "running"
     try:
         errors = reconcile_all()
@@ -171,6 +173,8 @@ def _run_reconcile(job_id: str) -> None:
             status="done", errors=errors, relation_count=count
         )
     except Exception as e:
+        tb = traceback.format_exc()
+        logger.error("reconcile job %s failed:\n%s", job_id, tb)
         _reconcile_jobs[job_id].update(status="error", detail=str(e))
 
 

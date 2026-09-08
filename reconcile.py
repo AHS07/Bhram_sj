@@ -31,9 +31,7 @@ def reconcile_all() -> list[dict]:
         for rel in session.exec(select(FactRelation)).all():
             seen_pairs.add(frozenset([rel.fact_id_a, rel.fact_id_b]))
 
-        total = len(facts)
-        llm_calls = 0
-        for i, fact in enumerate(facts):
+        for fact in facts:
             candidates = find_candidate_group(fact.fact_id, fact.entity, fact.attribute)
             for candidate_id in candidates:
                 if candidate_id == fact.fact_id:
