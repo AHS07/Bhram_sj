@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Bhram — Fact Knowledge Layer</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+<!-- Tailwind -->
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        surface:          '#F6F4EE',
+        'surface-bright': '#FAF8F3',
+        'surface-low':    '#EFECE4',
+        'surface-mid':    '#EAE6DC',
+        'surface-high':   '#E4DFD3',
+        'surface-dim':    '#DCD6CA',
+        border:           '#E3DEC3',
+        'border-mid':     '#DCD6CA',
+        'border-strong':  '#C8C0AF',
+        ink:              '#211F1C',
+        'ink-muted':      '#5C574E',
+        outline:          '#878174',
+        primary:          '#1B1917',
+        secondary:        '#15803D',
+        error:            '#B91C1C',
+        amber:            '#B45309',
+      },
+      fontFamily: {
+        serif:  ['Newsreader', 'serif'],
+        sans:   ['IBM Plex Sans', 'sans-serif'],
+        mono:   ['JetBrains Mono', 'monospace'],
+      },
+    }
+  }
+}
+</script>
+
+<!-- Anime.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+
+<style>
+  * { box-sizing: border-box; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #DCD6CA; border-radius: 3px; }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: #F6F4EE;
+    color: #211F1C;
+    margin: 0;
+    padding: 0;
+    overscroll-behavior: none;
+  }
+
+  /* Material Icons */
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 20;
+    vertical-align: middle;
+    line-height: 1;
+  }
+
+  /* Pulse dot */
+  @keyframes subtle-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50%       { transform: scale(1.4); opacity: 0.55; }
+  }
+  .pulse-dot         { display: inline-block; animation: subtle-pulse 2.8s cubic-bezier(.4,0,.6,1) infinite; }
+  .pulse-dot-delayed { display: inline-block; animation: subtle-pulse 3.2s cubic-bezier(.4,0,.6,1) infinite; animation-delay: 0.6s; }
+
+  /* Cards */
+  .relation-card {
+    transition: transform .26s cubic-bezier(.16,1,.3,1),
+                box-shadow .26s cubic-bezier(.16,1,.3,1),
+                border-color .22s ease;
+    border: 1px solid #E3DEC3;
+  }
+  .relation-card:hover {
+    transform: translateY(-2px);
+    border-color: #C8C0AF;
+    box-shadow: 0 8px 24px -4px rgba(60,52,42,.09), 0 2px 8px -1px rgba(60,52,42,.04);
+  }
+
+  /* Tactile buttons */
+  .tactile { transition: transform .11s cubic-bezier(.2,0,0,1), background-color .14s ease; }
+  .tactile:active { transform: scale(0.96); }
+
+  /* Quote highlight */
+  .q-mark {
+    background: #EAE6DC;
+    border: 1px solid #DCD6CA;
+    border-radius: 2px;
+    padding: 0 3px;
+    transition: background .2s ease, box-shadow .2s ease;
+    cursor: default;
+  }
+  .q-mark:hover {
+    background: #E0D9CC;
+    box-shadow: 0 0 0 2px rgba(118,110,95,.22);
+  }
+
+  /* Filter tabs */
+  .filter-tab { transition: all .2s cubic-bezier(.16,1,.3,1); }
+
+  /* Grounded badge */
+  .badge-grounded   { background:#DCFCE7; color:#15803D; border:1px solid #86EFAC; }
+  .badge-ungrounded { background:#FDE8E8; color:#B91C1C; border:1px solid #F8B4B4; }
+
+  /* Relation label accent */
+  .label-corroborated { background:#DCFCE7; color:#15803D; border:1px solid #86EFAC; }
+  .label-contradicted { background:#FDE8E8; color:#B91C1C; border:1px solid #F8B4B4; }
+  .label-reconciled   { background:#FEF3C7; color:#B45309; border:1px solid #FCD34D; }
+  .label-unrelated    { background:#EAE6DC; color:#5C574E; border:1px solid #DCD6CA; }
+
+  .dot-corroborated { background: #15803D; }
+  .dot-contradicted { background: #B91C1C; }
+  .dot-reconciled   { background: #B45309; }
+  .dot-unrelated    { background: #878174; }
+
+  .strip-corroborated { border-left: 4px solid #15803D; }
+  .strip-contradicted { border-left: 4px solid #B91C1C; }
+  .strip-reconciled   { border-left: 4px solid #B45309; }
+  .strip-unrelated    { border-left: 4px solid #DCD6CA; }
+
+  /* Reasoning icon bg per label */
+  .icon-corroborated { background:#DCFCE7; border:1px solid #86EFAC; color:#15803D; }
+  .icon-contradicted { background:#FDE8E8; border:1px solid #F8B4B4; color:#B91C1C; }
+  .icon-reconciled   { background:#FEF3C7; border:1px solid #FCD34D; color:#B45309; }
+  .icon-unrelated    { background:#EAE6DC; border:1px solid #DCD6CA; color:#878174; }
+
+  .reasoning-corroborated { color: #15803D; }
+  .reasoning-contradicted { color: #B91C1C; }
+  .reasoning-reconciled   { color: #B45309; }
+  .reasoning-unrelated    { color: #878174; }
+
+  /* Layout shells */
+  #app { display: flex; flex-direction: column; min-height: 100vh; }
+  #content { display: flex; flex: 1; padding-top: 64px; padding-bottom: 40px; }
+  #sidebar { width: 272px; flex-shrink: 0; }
+  #main    { flex: 1; min-width: 0; }
+
+  /* Status line */
+  .status-err { color: #B91C1C; }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<!-- ── HEADER ──────────────────────────────────────────────────────────── -->
+<header style="position:fixed;top:0;left:0;right:0;height:64px;z-index:50;background:#FAF8F3;border-bottom:1px solid #E3DEC3;box-shadow:0 1px 6px rgba(45,39,30,.03);" class="flex items-center justify-between px-4">
+  <div class="flex items-center gap-3">
+    <div class="flex items-center gap-2">
+      <span class="font-serif text-xl font-semibold text-primary tracking-tight">Bhram</span>
+      <span class="font-sans text-[11px] font-semibold uppercase tracking-wider bg-surface-mid text-ink-muted px-1.5 py-0.5 rounded border border-border-mid">Fact Knowledge Layer</span>
+    </div>
+    <span class="hidden xl:inline text-border-strong">|</span>
+    <p class="hidden xl:block font-sans text-[13px] text-ink-muted italic">Ground every fact, explain every conflict</p>
+    <div class="hidden md:flex items-center gap-1 bg-surface-low border border-border px-2 py-0.5 rounded-full">
+      <span class="w-2 h-2 rounded-full bg-secondary pulse-dot"></span>
+      <span class="font-mono text-[11px] font-medium text-ink">Pipeline Ready</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── BODY ────────────────────────────────────────────────────────────── -->
+<div id="content">
+
+  <!-- ── SIDEBAR ──────────────────────────────────────────────────────── -->
+  <aside id="sidebar" style="position:fixed;top:64px;bottom:40px;left:0;z-index:40;overflow-y:auto;background:#EFECE4;border-right:1px solid #E3DEC3;box-shadow:1px 0 6px rgba(45,39,30,.03);" class="flex flex-col justify-between p-4">
+
+    <div class="flex flex-col gap-4">
+
+      <!-- heading -->
+      <div class="flex items-center justify-between">
+        <span class="font-sans text-[11px] font-semibold uppercase tracking-wider text-ink-muted">Documents</span>
+        <span id="doc-count-badge" class="font-mono text-[11px] text-ink-muted bg-surface-mid border border-border-mid px-1.5 py-0.5 rounded">0 loaded</span>
+      </div>
+
+      <!-- upload box -->
+      <div class="bg-surface-bright border border-dashed border-border-mid rounded p-4 flex flex-col items-center text-center cursor-pointer hover:bg-surface-low transition-colors tactile" id="upload-area" onclick="document.getElementById('file-input').click()">
+        <span class="material-symbols-outlined text-outline mb-1" style="font-size:28px;">upload_file</span>
+        <span class="font-sans text-[13px] font-medium text-ink">Drop PDF here</span>
+        <span class="font-mono text-[11px] text-outline mt-0.5">or click to browse</span>
+        <input type="file" id="file-input" accept="application/pdf" class="hidden"/>
+      </div>
+      <div id="upload-status" class="font-mono text-[11px] text-ink-muted min-h-[14px]"></div>
+
+      <!-- doc list -->
+      <div class="flex flex-col gap-1">
+        <span class="font-mono text-[11px] uppercase tracking-wider text-outline">Ingested Sources</span>
+        <div id="doc-list" class="flex flex-col gap-1.5"></div>
+        <p id="doc-empty" class="font-sans text-[12px] text-ink-muted leading-relaxed">No documents yet. Upload a PDF to begin.</p>
+      </div>
+
+    </div>
+
+    <!-- reconcile button -->
+    <div class="pt-4">
+      <button id="reconcile-btn" class="w-full bg-primary hover:bg-[#2C2A26] text-white font-sans text-[13px] font-medium py-2 px-4 rounded shadow-sm flex items-center justify-center gap-1.5 transition-all tactile">
+        <span class="material-symbols-outlined text-[18px]" id="reconcile-icon">play_arrow</span>
+        Run Reconciliation
+      </button>
+      <div id="reconcile-status" class="font-mono text-[11px] text-ink-muted mt-1.5 min-h-[14px]"></div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN ─────────────────────────────────────────────────────────── -->
+  <main id="main" style="margin-left:272px;" class="flex flex-col">
+
+    <!-- tab bar -->
+    <div style="position:sticky;top:64px;z-index:30;background:#FAF8F3;border-bottom:1px solid #E3DEC3;box-shadow:0 1px 6px rgba(45,39,30,.02);" class="flex items-center justify-between px-4 py-1.5">
+      <nav class="flex items-center gap-1">
+        <button class="tab-btn px-3 py-1.5 font-sans text-[13px] font-medium rounded transition-colors" data-tab="facts" id="tab-facts">Extracted Facts</button>
+        <button class="tab-btn px-3 py-1.5 font-sans text-[13px] font-medium rounded transition-colors" data-tab="relations" id="tab-relations">Cross-Document Relations</button>
+      </nav>
+      <div class="flex items-center gap-1.5">
+        <span class="font-mono text-[11px] text-outline">Model:</span>
+        <span class="font-mono text-[11px] font-medium text-ink bg-surface-low border border-border px-1.5 py-0.5 rounded">deepseek-v4-flash</span>
+      </div>
+    </div>
+
+    <!-- ── FACTS PANEL ─────────────────────────────────────────────────── -->
+    <div id="panel-facts" class="tab-panel px-4 py-5 flex flex-col gap-3">
+
+      <!-- synthesis bar -->
+      <section class="bg-surface-bright border border-border rounded shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 hover:border-border-strong transition-colors">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded bg-surface-low border border-border flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-ink-muted" style="font-size:20px;">fact_check</span>
+          </div>
+          <div class="flex flex-col min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-serif text-[18px] font-semibold text-primary leading-tight">Extracted Fact Ledger</span>
+              <span id="facts-count-badge" class="font-mono text-[11px] bg-surface-mid border border-border-mid px-1.5 py-0.5 rounded text-ink-muted">0 facts</span>
+            </div>
+            <p class="font-sans text-[13px] text-ink-muted truncate">Every fact grounded in an exact source quote. Ungrounded facts are flagged.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="bg-surface-low border border-border px-2.5 py-1 rounded flex items-center gap-1.5">
+            <span class="font-mono text-[11px] text-ink-muted">Vector Store</span>
+            <span class="font-mono text-[11px] font-semibold text-secondary">Chroma + Cosine</span>
+          </div>
+        </div>
+      </section>
+
+      <div id="facts-list" class="flex flex-col gap-2"></div>
+      <p id="facts-empty" class="font-sans text-[13px] text-ink-muted py-4">No facts extracted yet. Upload a document to get started.</p>
+    </div>
+
+    <!-- ── RELATIONS PANEL ─────────────────────────────────────────────── -->
+    <div id="panel-relations" class="tab-panel px-4 py-5 flex flex-col gap-3" style="display:none;">
+
+      <!-- synthesis bar -->
+      <section class="bg-surface-bright border border-border rounded shadow-sm p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 hover:border-border-strong transition-colors">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded bg-surface-low border border-border flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-ink-muted" style="font-size:20px;">account_tree</span>
+          </div>
+          <div class="flex flex-col min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="font-serif text-[18px] font-semibold text-primary leading-tight">Cross-Document Evidence Synthesis</span>
+              <span id="relations-count-badge" class="font-mono text-[11px] bg-surface-mid border border-border-mid px-1.5 py-0.5 rounded text-ink-muted">0 pairs</span>
+            </div>
+            <p class="font-sans text-[13px] text-ink-muted truncate">Reconciliation generated via DeepSeek over Chroma candidate pairs.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="bg-surface-low border border-border px-2.5 py-1 rounded flex items-center gap-1.5">
+            <span class="font-mono text-[11px] text-ink-muted">Threshold</span>
+            <span class="font-mono text-[11px] font-semibold text-primary">Cosine &gt; 0.85</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- filter ribbon -->
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div id="filter-tabs" class="flex items-center gap-0.5 bg-surface-low border border-border p-0.5 rounded">
+          <button class="filter-tab px-3 py-1.5 rounded font-sans text-[13px] font-medium tactile flex items-center gap-1.5 border" data-filter="all">
+            <span>All</span><span id="count-all" class="font-mono text-[11px] bg-surface-mid px-1.5 py-0.5 rounded">0</span>
+          </button>
+          <button class="filter-tab px-3 py-1.5 rounded font-sans text-[13px] font-medium tactile flex items-center gap-1.5 border border-transparent text-ink-muted hover:text-ink" data-filter="corroborated">
+            <span class="w-2 h-2 rounded-full dot-corroborated pulse-dot"></span>
+            <span>Corroborated</span><span id="count-corroborated" class="font-mono text-[11px] bg-surface-high px-1.5 py-0.5 rounded">0</span>
+          </button>
+          <button class="filter-tab px-3 py-1.5 rounded font-sans text-[13px] font-medium tactile flex items-center gap-1.5 border border-transparent text-ink-muted hover:text-ink" data-filter="reconciled">
+            <span class="w-2 h-2 rounded-full dot-reconciled pulse-dot"></span>
+            <span>Reconciled</span><span id="count-reconciled" class="font-mono text-[11px] bg-surface-high px-1.5 py-0.5 rounded">0</span>
+          </button>
+          <button class="filter-tab px-3 py-1.5 rounded font-sans text-[13px] font-medium tactile flex items-center gap-1.5 border border-transparent text-ink-muted hover:text-ink" data-filter="contradicted">
+            <span class="w-2 h-2 rounded-full dot-contradicted pulse-dot"></span>
+            <span>Contradicted</span><span id="count-contradicted" class="font-mono text-[11px] bg-surface-high px-1.5 py-0.5 rounded">0</span>
+          </button>
+          <button class="filter-tab px-3 py-1.5 rounded font-sans text-[13px] font-medium tactile flex items-center gap-1.5 border border-transparent text-ink-muted hover:text-ink" data-filter="unrelated">
+            <span class="w-2 h-2 rounded-full dot-unrelated pulse-dot"></span>
+            <span>Unrelated</span><span id="count-unrelated" class="font-mono text-[11px] bg-surface-high px-1.5 py-0.5 rounded">0</span>
+          </button>
+        </div>
+        <!-- search -->
+        <div class="relative w-full sm:w-64">
+          <span class="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-outline" style="font-size:17px;">search</span>
+          <input id="relation-search" type="text" placeholder="Filter by entity, attribute…"
+            class="w-full bg-surface-bright border border-border-mid rounded pl-8 pr-3 py-1.5 font-sans text-[13px] text-ink placeholder:text-outline focus:outline-none focus:ring-1 focus:ring-border-strong transition-shadow shadow-sm"/>
+        </div>
+      </div>
+
+      <div id="relations-list" class="flex flex-col gap-3"></div>
+      <p id="relations-empty" class="font-sans text-[13px] text-ink-muted py-4">No relations yet. Upload at least two documents with overlapping facts, then run reconciliation.</p>
+    </div>
+
+  </main>
+</div><!-- #content -->
+
+<!-- ── FOOTER ─────────────────────────────────────────────────────────── -->
+<footer style="position:fixed;bottom:0;left:0;right:0;height:40px;z-index:50;background:#EFECE4;border-top:1px solid #E3DEC3;box-shadow:0 -1px 6px rgba(45,39,30,.03);" class="flex items-center justify-between px-4">
+  <div class="flex items-center gap-5">
+    <div class="flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-secondary pulse-dot"></span>
+      <span class="font-mono text-[11px] text-ink-muted">Chroma:</span>
+      <span class="font-mono text-[11px] text-ink">Connected</span>
+    </div>
+    <div class="flex items-center gap-1.5">
+      <span class="w-2 h-2 rounded-full bg-secondary pulse-dot-delayed"></span>
+      <span class="font-mono text-[11px] text-ink-muted">SQLite:</span>
+      <span class="font-mono text-[11px] text-ink">bhram.db</span>
+    </div>
+  </div>
+  <div class="flex items-center gap-4">
+    <span id="footer-facts" class="font-mono text-[11px] text-outline">0 facts</span>
+    <span id="footer-relations" class="font-mono text-[11px] text-outline">0 relations</span>
+  </div>
+</footer>
+
+</div><!-- #app -->
+
+<script>
+/* ── Utilities ──────────────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').toString()
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  return r.json();
+}
+
+function setStatus(elId, msg, isErr = false) {
+  const el = $(elId);
+  el.textContent = msg;
+  el.className = 'font-mono text-[11px] mt-1.5 min-h-[14px]' + (isErr ? ' status-err' : ' text-ink-muted');
+}
+
+/* ── Tab switching ──────────────────────────────────────────────────── */
+function activateTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    const active = b.dataset.tab === name;
+    b.className = 'tab-btn px-3 py-1.5 font-sans text-[13px] font-medium rounded transition-colors ' +
+      (active ? 'bg-surface-mid text-ink font-semibold border border-border-mid' : 'text-ink-muted hover:text-ink hover:bg-surface-low');
+  });
+  $('panel-' + name).style.display = 'flex';
+}
+
+document.querySelectorAll('.tab-btn').forEach(b => {
+  b.addEventListener('click', () => activateTab(b.dataset.tab));
+});
+activateTab('facts');
+
+/* ── Documents ──────────────────────────────────────────────────────── */
+async function loadDocuments() {
+  const docs = await api('/documents');
+  const list = $('doc-list');
+  list.innerHTML = '';
+  $('doc-empty').style.display = docs.length ? 'none' : 'block';
+  $('doc-count-badge').textContent = docs.length + ' loaded';
+  docs.forEach(d => {
+    const item = document.createElement('div');
+    item.className = 'p-2 bg-surface-bright border border-border-mid rounded shadow-sm flex flex-col gap-0.5 hover:bg-surface-low transition-colors';
+    item.innerHTML = `
+      <div class="flex items-center justify-between gap-1">
+        <span class="font-mono text-[11px] font-medium text-ink truncate max-w-[160px]">${esc(d.filename)}</span>
+        <span class="font-mono text-[11px] text-secondary shrink-0">Parsed</span>
+      </div>
+      <span class="font-mono text-[11px] text-ink-muted truncate">${esc(d.global_summary || '')}</span>
+    `;
+    list.appendChild(item);
+  });
+}
+
+/* ── Upload ─────────────────────────────────────────────────────────── */
+$('file-input').addEventListener('change', handleUpload);
+$('upload-area').addEventListener('dragover', e => { e.preventDefault(); $('upload-area').classList.add('bg-surface-mid'); });
+$('upload-area').addEventListener('dragleave', () => $('upload-area').classList.remove('bg-surface-mid'));
+$('upload-area').addEventListener('drop', e => {
+  e.preventDefault();
+  $('upload-area').classList.remove('bg-surface-mid');
+  const f = e.dataTransfer.files[0];
+  if (f) uploadFile(f);
+});
+
+async function handleUpload(e) {
+  const f = e.target.files[0];
+  if (f) uploadFile(f);
+}
+
+async function uploadFile(file) {
+  if (!file.name.endsWith('.pdf')) {
+    setStatus('upload-status', 'Only PDF files are supported.', true);
+    return;
+  }
+  const form = new FormData();
+  form.append('file', file);
+  setStatus('upload-status', `Parsing ${file.name}…`);
+  $('file-input').value = '';
+  try {
+    const r = await api('/upload', { method: 'POST', body: form });
+    const errs = r.extraction_errors?.length || 0;
+    setStatus('upload-status', `${r.facts_extracted} facts extracted${errs ? `, ${errs} page(s) skipped` : ''}.`);
+    await refreshAll();
+  } catch (e) {
+    setStatus('upload-status', `Upload failed: ${e.message}`, true);
+  }
+}
+
+/* ── Facts ──────────────────────────────────────────────────────────── */
+function groundedBadge(verified) {
+  return verified
+    ? `<span class="badge-grounded font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded">grounded</span>`
+    : `<span class="badge-ungrounded font-mono text-[10px] font-semibold px-1.5 py-0.5 rounded">ungrounded</span>`;
+}
+
+function factCard(f) {
+  const pg = (f.page_number ?? 0) + 1;
+  return `
+    <article class="relation-card bg-surface-bright rounded shadow-sm overflow-hidden">
+      <!-- header strip -->
+      <div class="px-4 py-2 bg-surface-low border-b border-border flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="material-symbols-outlined text-ink-muted" style="font-size:15px;">description</span>
+          <span class="font-mono text-[11px] font-semibold text-ink truncate max-w-[220px]">${esc(f.filename || '')}</span>
+          <span class="font-mono text-[11px] text-outline">p.${pg}</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="font-mono text-[11px] text-ink-muted">conf ${Number(f.confidence).toFixed(2)}</span>
+          ${groundedBadge(f.grounding_verified)}
+        </div>
+      </div>
+      <!-- body -->
+      <div class="p-4 flex flex-col gap-2">
+        <div class="bg-surface-low border border-border rounded p-3 flex items-center justify-between">
+          <div class="flex flex-col min-w-0">
+            <span class="font-mono text-[10px] uppercase tracking-wider text-outline">Entity · Attribute</span>
+            <span class="font-sans text-[14px] font-semibold text-primary leading-snug">${esc(f.entity)}</span>
+            <span class="font-sans text-[13px] text-ink-muted">${esc(f.attribute)}</span>
+          </div>
+          <div class="text-right shrink-0 ml-3">
+            <span class="font-mono text-[10px] uppercase tracking-wider text-outline">Value</span>
+            <div class="font-mono text-[13px] font-semibold text-primary mt-0.5">${esc(f.value)}</div>
+            ${f.context ? `<div class="font-sans text-[11px] text-ink-muted mt-0.5">${esc(f.context)}</div>` : ''}
+          </div>
+        </div>
+        <div class="flex flex-col gap-0.5">
+          <span class="font-mono text-[10px] uppercase tracking-wider text-outline">Ground Truth Segment</span>
+          <div class="bg-surface-bright border border-border rounded p-2.5 font-mono text-[12px] text-ink leading-relaxed">${esc(f.source_quote)}</div>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+async function loadFacts() {
+  const facts = await (async () => {
+    let all = [], offset = 0, limit = 200;
+    while (true) {
+      const page = await api(`/facts?limit=${limit}&offset=${offset}`);
+      all = all.concat(page);
+      if (page.length < limit) break;
+      offset += limit;
+    }
+    return all;
+  })();
+  $('facts-count-badge').textContent = facts.length + ' facts';
+  $('footer-facts').textContent = facts.length + ' facts';
+  $('facts-empty').style.display = facts.length ? 'none' : 'block';
+  const list = $('facts-list');
+  list.innerHTML = facts.map(factCard).join('');
+
+  if (typeof anime !== 'undefined') {
+    const cards = list.querySelectorAll('.relation-card');
+    cards.forEach(c => { c.style.opacity = '0'; c.style.transform = 'translateY(12px)'; });
+    anime({ targets: Array.from(cards), translateY: [12, 0], opacity: [0, 1], duration: 600, delay: anime.stagger(50), easing: 'easeOutExpo' });
+  }
+}
+
+/* ── Relations ──────────────────────────────────────────────────────── */
+const LABEL_META = {
+  corroborated: { icon: 'verified',   iconTitle: 'Independent Confirmation', reasonClass: 'reasoning-corroborated' },
+  contradicted:  { icon: 'warning',    iconTitle: 'Direct Inconsistency',      reasonClass: 'reasoning-contradicted'  },
+  reconciled:    { icon: 'psychology', iconTitle: 'Contextual Resolution',      reasonClass: 'reasoning-reconciled'    },
+  unrelated:     { icon: 'help',       iconTitle: 'No Semantic Match',          reasonClass: 'reasoning-unrelated'     },
+};
+
+function miniFactCard(f, side) {
+  if (!f) return `<div class="bg-surface-low border border-border rounded p-3"><em class="font-mono text-[11px] text-outline">fact not found</em></div>`;
+  const pg = (f.page_number ?? 0) + 1;
+  return `
+    <div class="bg-surface-low border border-border rounded p-3 flex flex-col gap-2 flex-1 min-w-0 hover:border-border-strong transition-colors">
+      <div class="flex items-center justify-between gap-1">
+        <div class="flex items-center gap-1 min-w-0">
+          <span class="material-symbols-outlined text-outline" style="font-size:14px;">description</span>
+          <span class="font-mono text-[11px] font-semibold text-primary truncate max-w-[160px]">${esc(f.filename || '')}</span>
+          <span class="font-mono text-[11px] text-outline">p.${pg}</span>
+        </div>
+        ${groundedBadge(f.grounding_verified)}
+      </div>
+      <div class="bg-surface-bright border border-border rounded p-2 flex items-center justify-between">
+        <div class="flex flex-col min-w-0">
+          <span class="font-mono text-[10px] uppercase text-outline">Attribute</span>
+          <span class="font-sans text-[13px] font-medium text-primary truncate">${esc(f.attribute)}</span>
+        </div>
+        <div class="text-right ml-2 shrink-0">
+          <span class="font-mono text-[10px] uppercase text-outline">Value</span>
+          <div class="font-mono text-[12px] font-semibold text-primary">${esc(f.value)}</div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-0.5">
+        <span class="font-mono text-[10px] uppercase tracking-wider text-outline">Ground Truth Segment</span>
+        <div class="bg-surface-bright border border-border rounded p-2 font-mono text-[11px] text-ink leading-relaxed">${esc(f.source_quote)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function relationCard(r) {
+  const label  = r.label || 'unrelated';
+  const meta   = LABEL_META[label] || LABEL_META.unrelated;
+  const labelUp = label.charAt(0).toUpperCase() + label.slice(1);
+  return `
+    <article class="relation-card bg-surface-bright rounded shadow-sm overflow-hidden flex flex-col" data-label="${esc(label)}">
+      <!-- status strip header -->
+      <div class="px-4 py-2.5 bg-surface-low border-b border-border flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase tracking-wider label-${esc(label)}">
+            <span class="w-2 h-2 rounded-full dot-${esc(label)} pulse-dot"></span>
+            ${esc(labelUp)}
+          </span>
+          <span class="font-serif text-[16px] font-semibold text-primary">${esc(r.fact_a?.entity || r.fact_b?.entity || '')}</span>
+        </div>
+        <span class="font-mono text-[11px] text-ink-muted">${esc(r.fact_a?.attribute || '')}</span>
+      </div>
+
+      <!-- body -->
+      <div class="p-4 flex flex-col gap-3">
+
+        <!-- reasoning box -->
+        <div class="bg-surface-low border border-border rounded p-3 flex items-start gap-2.5">
+          <div class="p-1.5 rounded shrink-0 mt-0.5 icon-${esc(label)}">
+            <span class="material-symbols-outlined" style="font-size:17px;">${esc(meta.icon)}</span>
+          </div>
+          <div class="flex flex-col gap-0.5 min-w-0">
+            <span class="font-mono text-[10px] uppercase tracking-wider ${esc(meta.reasonClass)} font-semibold">${esc(meta.iconTitle)}</span>
+            <p class="font-sans text-[13px] text-ink leading-relaxed">${esc(r.reasoning || '')}</p>
+          </div>
+        </div>
+
+        <!-- dual source cards -->
+        <div class="flex flex-col lg:flex-row gap-3">
+          ${miniFactCard(r.fact_a, 'A')}
+          ${miniFactCard(r.fact_b, 'B')}
+        </div>
+
+      </div>
+    </article>
+  `;
+}
+
+let allRelations = [];
+
+async function loadRelations() {
+  allRelations = await (async () => {
+    let all = [], offset = 0, limit = 200;
+    while (true) {
+      const page = await api(`/relations?limit=${limit}&offset=${offset}`);
+      all = all.concat(page);
+      if (page.length < limit) break;
+      offset += limit;
+    }
+    return all;
+  })();
+  $('relations-count-badge').textContent = allRelations.length + ' pairs';
+  $('footer-relations').textContent = allRelations.length + ' relations';
+  $('relations-empty').style.display = allRelations.length ? 'none' : 'block';
+
+  // Update filter counts
+  const counts = { all: allRelations.length, corroborated: 0, contradicted: 0, reconciled: 0, unrelated: 0 };
+  allRelations.forEach(r => { if (counts[r.label] !== undefined) counts[r.label]++; });
+  Object.keys(counts).forEach(k => {
+    const el = $('count-' + k);
+    if (el) el.textContent = counts[k];
+  });
+
+  renderRelations(allRelations);
+}
+
+function renderRelations(rels) {
+  const list = $('relations-list');
+  list.innerHTML = rels.map(relationCard).join('');
+  $('relations-empty').style.display = rels.length ? 'none' : 'block';
+
+  if (typeof anime !== 'undefined') {
+    const cards = list.querySelectorAll('.relation-card');
+    cards.forEach(c => { c.style.opacity = '0'; c.style.transform = 'translateY(14px)'; });
+    anime({ targets: Array.from(cards), translateY: [14, 0], opacity: [0, 1], duration: 700, delay: anime.stagger(80), easing: 'easeOutExpo' });
+  }
+}
+
+/* ── Filter tabs ─────────────────────────────────────────────────────── */
+document.querySelectorAll('.filter-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-tab').forEach(b => {
+      b.className = 'filter-tab px-3 py-1.5 rounded font-sans text-[13px] font-medium tactile flex items-center gap-1.5 border border-transparent text-ink-muted hover:text-ink';
+    });
+    btn.className = 'filter-tab px-3 py-1.5 rounded font-sans text-[13px] font-medium tactile flex items-center gap-1.5 border bg-surface-bright text-ink shadow-sm border-border-mid';
+
+    const filter = btn.dataset.filter;
+    const filtered = filter === 'all' ? allRelations : allRelations.filter(r => r.label === filter);
+    renderRelations(filtered);
+  });
+});
+
+// Set initial active filter tab style
+const allTab = document.querySelector('[data-filter="all"]');
+if (allTab) allTab.className = 'filter-tab px-3 py-1.5 rounded font-sans text-[13px] font-medium tactile flex items-center gap-1.5 border bg-surface-bright text-ink shadow-sm border-border-mid';
+
+/* ── Search ──────────────────────────────────────────────────────────── */
+$('relation-search').addEventListener('input', e => {
+  const term = e.target.value.toLowerCase().trim();
+  const filtered = !term ? allRelations : allRelations.filter(r => {
+    return JSON.stringify(r).toLowerCase().includes(term);
+  });
+  renderRelations(filtered);
+});
+
+/* ── Reconcile ───────────────────────────────────────────────────────── */
+$('reconcile-btn').addEventListener('click', async () => {
+  const icon = $('reconcile-icon');
+  $('reconcile-btn').disabled = true;
+  setStatus('reconcile-status', 'Starting reconciliation…');
+
+  if (typeof anime !== 'undefined') {
+    anime({ targets: icon, rotate: '+=360deg', duration: 800, easing: 'easeOutBack(1.5)', loop: true });
+  }
+
+  try {
+    const kickoff = await api('/reconcile', { method: 'POST' });
+    const jobId = kickoff.job_id;
+
+    const poll = async () => {
+      const job = await api(`/reconcile/${jobId}`);
+      if (job.status === 'done') {
+        if (typeof anime !== 'undefined') anime.remove(icon);
+        icon.style.transform = '';
+        const errs = job.errors?.length || 0;
+        setStatus('reconcile-status', `Done — ${job.relation_count} relations${errs ? `, ${errs} pair(s) failed` : ''}.`);
+        await loadRelations();
+        $('reconcile-btn').disabled = false;
+      } else if (job.status === 'error') {
+        if (typeof anime !== 'undefined') anime.remove(icon);
+        icon.style.transform = '';
+        setStatus('reconcile-status', `Error: ${job.detail}`, true);
+        $('reconcile-btn').disabled = false;
+      } else {
+        setStatus('reconcile-status', `Reconciling… (${job.status})`);
+        setTimeout(poll, 3000);
+      }
+    };
+    setTimeout(poll, 2000);
+  } catch (e) {
+    if (typeof anime !== 'undefined') anime.remove(icon);
+    icon.style.transform = '';
+    setStatus('reconcile-status', `Failed: ${e.message}`, true);
+    $('reconcile-btn').disabled = false;
+  }
+});
+
+/* ── Bootstrap ───────────────────────────────────────────────────────── */
+async function refreshAll() {
+  await Promise.all([loadDocuments(), loadFacts(), loadRelations()]);
+}
+
+refreshAll();
+</script>
+</body>
+</html>

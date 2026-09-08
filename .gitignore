@@ -1,0 +1,58 @@
+# Environment
+.env
+
+# Runtime data — generated locally, never committed
+bhram.db
+chroma_store/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test & coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.bak
+tmp/
+
+# about/ — design docs, not part of the deployable project
+about/
+
+# Starter datasets — local dev/test fixture, not committed
+starter-datasets/
