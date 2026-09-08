@@ -56,5 +56,8 @@ tmp/
 # about/ — design docs, not part of the deployable project
 about/
 
+# Dev session notes — not part of the deliverable
+memory.md
+
 # Starter datasets — local dev/test fixture, not committed
 starter-datasets/
